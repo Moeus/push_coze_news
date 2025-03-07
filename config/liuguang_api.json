@@ -1,0 +1,48 @@
+{
+  "form": {
+    "icon": "https://mrxc-1300093961.cos.ap-shanghai.myqcloud.com/2025/2/26/1894725766915244034.jpg",
+    "date": "",
+    "title": "",
+    "content": "",
+    "author": "<p>绥鹤</p>",
+    "textCount": "字数",
+    "qrCodeTitle": "<p>Moeus github主页</p>",
+    "qrCodeText": "扫描二维码",
+    "pagination": "01",
+    "qrCode": "https://github.com/Moeus",
+    "textCountNum": 1411
+  },
+  "style": {
+    "align": "left",
+    "backgroundName": "color-e-0",
+    "backShadow": "",
+    "font": "MiSans-Regular",
+    "width": 440,
+    "ratio": "",
+    "height": 0,
+    "fontScale": 1,
+    "padding": "30px",
+    "borderRadius": "10px",
+    "backgroundAngle": "",
+    "textColor": "#000",
+    "lineHeights": {
+      "content": ""
+    },
+    "letterSpacings": {
+      "content": ""
+    }
+  },
+  "switchConfig": {
+    "showIcon": true,
+    "showTitle": true,
+    "showContent": true,
+    "showDate": true,
+    "showAuthor": true,
+    "showTextCount": true,
+    "showQRCode": true,
+    "showPageNum": false,
+    "showWatermark": false
+  },
+  "temp": "tempE",
+  "language": "zh"
+}
