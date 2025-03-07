@@ -103,6 +103,7 @@ def check_old_pngs(year, month, day):
     for filename in os.listdir(script_dir):
         if filename.endswith('.png'):
             if filename==f"{year}-{month}-{day}.png": 
+                coze_logger.info(f"找到今现存的日新闻卡片{year}-{month}-{day}.png")
                 nowaday_news_exist=True
             try:
                 file_date_str = filename.split('.')[0]
@@ -167,7 +168,7 @@ def print_running_time():
 def main(year, month, day):
     script_dir = os.path.dirname(os.path.abspath(__file__))
     if check_old_pngs(year, month, day):
-        
+        coze_logger.info(f"已存在今日新闻卡片{year}-{month}-{day}.png，即将上传与推送")
         try:
             coze_logger.info("获取对象存储库配置")
             with open(os.path.join(script_dir, "config/qiniu.json"), 'r', encoding='utf-8') as file:
