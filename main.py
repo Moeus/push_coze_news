@@ -1,11 +1,12 @@
 import requests
-import pyautogui
 from typing import Literal
 import json
 import os
 import threading
 import time
 from datetime import datetime, timedelta
+import http.client
+from qiniu import Auth, put_file, etag
 from cozepy import COZE_CN_BASE_URL
 from cozepy import Coze, TokenAuth, Message, ChatStatus, MessageContentType
 import logging
@@ -90,51 +91,19 @@ def get_png(data,content,script_dir, year, month, day):
         coze_logger.error(f'请求发生未知错误: {req_err}')
     return 0
 
-
-# 获取accessID
-def get_access_token(AppSecret, AppID):
-    try:
-        url = 'https://api.weixin.qq.com/cgi-bin/token?grant_type=client_credential&appid={}&secret={}'.format(
-            AppID, AppSecret)
-        response = requests.get(url)
-        res_html = response.json()
-        access_token = res_html['access_token']
-        coze_logger.info("成功获取access_token")
-    except Exception as e:
-        coze_logger.error(res_html)
-        coze_logger.error(f"获取accessID时出现错误 {e}")
-        exit()
-    return access_token
-
-
-# 上传永久素材
-def push_image(access_token, image_path, type: Literal["image", "voice", "video", "thumb"]):
-    media_type = type
-    upload_url = f"https://api.weixin.qq.com/cgi-bin/material/add_material?access_token={access_token}&type={media_type}"
-    try:
-        coze_logger.info("正在上传新闻卡片至微信公众号永久素材库")
-        with open(image_path, 'rb') as file:
-            response = requests.post(upload_url, files={'media': (image_path, file)})
-        result = response.json()
-        coze_logger.info("上传素材成功")
-    except Exception as e:
-        coze_logger.error(f"上传素材时发生异常：{e}")
-    if 'media_id' in result:
-        media_id = result['media_id']
-        img_url = result['url']
-        coze_logger.info(f"上传成功素材成功! media_id: {media_id}, img_url: {img_url}")
-        return media_id, img_url
-    else:
-        coze_logger.error(f"上传素材失败，错误信息: {result['errmsg']}")
-
-
 # 删除七天以前的在本地存储的新闻png
-def delete_old_pngs(year, month, day):
+def check_old_pngs(year, month, day):
+    """
+    检查并删除七天前的新闻图片，并且检查今日新闻图片是否以及存在
+    """
     current_date = datetime(year, month, day)
     seven_days_ago = current_date - timedelta(days=7)
     script_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)), "png")
+    nowaday_news_exist=False
     for filename in os.listdir(script_dir):
         if filename.endswith('.png'):
+            if filename==f"{year}-{month}-{day}.png": 
+                nowaday_news_exist=True
             try:
                 file_date_str = filename.split('.')[0]
                 file_date = datetime.strptime(file_date_str, '%Y-%m-%d')
@@ -144,7 +113,47 @@ def delete_old_pngs(year, month, day):
                     coze_logger.info(f"已删除旧的 PNG 文件: {filename}")
             except ValueError:
                 continue
+    return nowaday_news_exist
 
+
+#上传到七牛对象存储库
+def qiniu_push_file(qiniu_config,year,month,day,img_path):
+    q = Auth(*qiniu_config.values())
+    #检查是否以及存在
+    base_url="http://ssqnlgcpi.hn-bkt.clouddn.com/"
+    #要上传的空间
+    bucket_name = 'moeus-news-png'
+    #上传后保存的文件名
+    key = f'{year}-{month}-{day}.png'
+    #生成上传 Token，可以指定过期时间等
+    token = q.upload_token(bucket_name, key, 3600)
+    #要上传文件的本地路径
+    localfile = img_path
+    ret, info = put_file(token, key, localfile, version='v2')
+    coze_logger.info(info)
+    assert ret['key'] == key
+    assert ret['hash'] == etag(localfile)
+    coze_logger.info(ret)
+    coze_logger.info(base_url+key)
+    return base_url+key
+
+def pushplus(token,title,img_url,topic=""):
+    conn = http.client.HTTPSConnection("www.pushplus.plus")
+    coze_logger.info("正在向用户推送新闻" if topic=="" else f"正在向群组{topic}推送新闻")
+    payload = json.dumps({
+    "token": f"{token}",
+    "title": f"{title}",
+    "content": f'<img src={img_url} alt="图片无法显示">',
+    "topic": f"{topic}",
+    "template": "html"
+    })
+    headers = {
+    'Content-Type': 'application/json'
+    }
+    conn.request("POST", "/send", payload, headers)
+    res = conn.getresponse()
+    data = res.read()
+    coze_logger.info(data.decode("utf-8"))
 
 # 打印运行时间线程函数
 def print_running_time():
@@ -154,39 +163,49 @@ def print_running_time():
         elapsed_time = time.time() - start_time
         print(f"程序已运行 {elapsed_time:.2f} 秒", end='\r')
 
-
 # 主要工作线程入口
 def main(year, month, day):
     script_dir = os.path.dirname(os.path.abspath(__file__))
-    # try:
-    #     coze_logger.info("获取获取微信api配置")
-    #     with open(os.path.join(script_dir, "config/wechat_access_api.json"), "r", encoding='utf-8') as file:
-    #         wechat_access_config = json.load(file)
-    #     coze_logger.info("成功获取获取微信api配置")
-    # except Exception as e:
-    #     coze_logger.error("读取微信api配置出错")
-
-    try:
-        coze_logger.info("获取coze令牌配置")
-        with open(os.path.join(script_dir, "config/coze_api.json"), "r", encoding='utf-8') as file:
-            coze_config = json.load(file)
-        coze_logger.info("成功获取获取coze令牌配置")
-    except Exception as e:
-        coze_logger.error("读取coze令牌配置出错")
+    if check_old_pngs(year, month, day):
         
-    try:
-        coze_logger.info("获取新闻卡片配置")
-        with open(os.path.join(script_dir, "config/liuguang_api.json"), 'r', encoding='utf-8') as file:
-            liuguang_data = json.load(file)
-        coze_logger.info("成功获取新闻卡片配置")
-    except Exception as e:
-        coze_logger.error("读取新闻卡片配置出错")
+        try:
+            coze_logger.info("获取对象存储库配置")
+            with open(os.path.join(script_dir, "config/qiniu.json"), 'r', encoding='utf-8') as file:
+                qiniu_config = json.load(file)
+            coze_logger.info("成功获取对象存储库配置")
+        except Exception as e:
+            coze_logger.error("读取对象存储库配置出错")
 
-    # access_token=get_access_token(*wechat_access_config.values())
-    context = get_news(*coze_config.values())
-    img_path= get_png(liuguang_data,content=context,script_dir=script_dir,year=year, month=month, day=day)
-    # img_id = push_image(access_token, image_path=img_path, type="image")
-    delete_old_pngs(year, month, day)
+        url=qiniu_push_file(qiniu_config=qiniu_config,year=year,month=month,day=day,img_path=os.path.join(script_dir,"png",f'{year}-{month}-{day}.png'))
+        res=pushplus(token="197bcdaf723444f6a0b48dfd304c3153",title=f"{year}-{month}-{day}今日热点新闻",img_url=url,topic="Moeus266")
+    else:
+        try:
+            coze_logger.info("获取coze令牌配置")
+            with open(os.path.join(script_dir, "config/coze_api.json"), "r", encoding='utf-8') as file:
+                coze_config = json.load(file)
+            coze_logger.info("成功获取获取coze令牌配置")
+        except Exception as e:
+            coze_logger.error("读取coze令牌配置出错")
+            
+        try:
+            coze_logger.info("获取新闻卡片配置")
+            with open(os.path.join(script_dir, "config/liuguang_api.json"), 'r', encoding='utf-8') as file:
+                liuguang_config = json.load(file)
+            coze_logger.info("成功获取新闻卡片配置")
+        except Exception as e:
+            coze_logger.error("读取新闻卡片配置出错")
+
+        try:
+            coze_logger.info("获取对象存储库配置")
+            with open(os.path.join(script_dir, "config/qiniu.json"), 'r', encoding='utf-8') as file:
+                qiniu_config = json.load(file)
+            coze_logger.info("成功获取对象存储库配置")
+        except Exception as e:
+            coze_logger.error("读取对象存储库配置出错")
+        context = get_news(*coze_config.values())
+        img_path= get_png(liuguang_config,content=context,script_dir=script_dir,year=year, month=month, day=day)
+        url=qiniu_push_file(qiniu_config=qiniu_config,year=year,month=month,day=day,img_path=img_path)
+        res=pushplus(token="197bcdaf723444f6a0b48dfd304c3153",title=f"{year}-{month}-{day}今日热点新闻",img_url=url,topic="Moeus266")
     time.sleep(1)
     global state
     state = True

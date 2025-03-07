@@ -1,9 +1,5 @@
-# -*- coding: utf-8 -*-
-# flake8: noqa
 from qiniu import Auth, put_file, etag
-import qiniu.config
 #需要填写你的 Access Key 和 Secret Key
-
 #构建鉴权对象
 q = Auth(access_key="FZzEtGwpcOqeY4TgSreLMjMZ0KmzOXfPlFSQfPRY", secret_key="qFWi1wp8H4HAkmXH1gRAd3xDh8ZlyKUF3jVaDyQH")
 
