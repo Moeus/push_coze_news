@@ -40,7 +40,7 @@ def get_toutiao(webpage:WebPage):
             find_tab=webpage.new_tab(url=pre_url)
             try:
                 #尝试寻找trending下的article链接
-                new_ele=find_tab.ele("@@tag():a@@href:article")#模糊匹配article
+                new_ele=find_tab.ele("@@tag():a@@href:article",timeout=1)#模糊匹配article
                 article_url=new_ele.attr("href")
             except Exception as e:
                 coze_logger.info(f"[头条]当前链接不是article链接，链接内也未找到article链接{pre_url}")
@@ -116,7 +116,7 @@ def get_weibo(webpage:WebPage):
         tab.get(hot_url)
         #对文章属性进行提取,有些文章可能不完整不包含部分内容，所以使用try语块
         try:
-            article["title"]=tab.ele("@@tag()=h1@@class=short",timeout=2).ele("@tag():a",timeout=2).text
+            article["title"]=tab.ele("@@tag()=h1@@class=short",timeout=1).ele("@tag():a",timeout=1).text
             coze_logger.info(f"{article['title']}")
             #获取第一条微博的内容元素，内容包括作者和正文
             content_ele=tab.ele("@@tag()=p@@node-type=feed_list_content@@class=txt",timeout=2)
