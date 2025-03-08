@@ -211,20 +211,20 @@ def main(year, month, day):
     global state
     state = True
 
-# 多线程入口函数
-if __name__ == "__main__":
-    current_time = time.localtime()
-    year = current_time.tm_year
-    month = current_time.tm_mon
-    day = current_time.tm_mday
-    threading_main = threading.Thread(target=main, args=(year, month, day))
-    threading_time = threading.Thread(target=print_running_time)
-    coze_logger.info("开始执行")
-    threading_time.start()
-    threading_main.start()
-    threading_main.join()
-    threading_time.join()
-    time.sleep(1)
-    coze_logger.info("全部完成")
+# # 多线程入口函数
+# if __name__ == "__main__":
+#     current_time = time.localtime()
+#     year = current_time.tm_year
+#     month = current_time.tm_mon
+#     day = current_time.tm_mday
+#     threading_main = threading.Thread(target=main, args=(year, month, day))
+#     threading_time = threading.Thread(target=print_running_time)
+#     coze_logger.info("开始执行")
+#     threading_time.start()
+#     threading_main.start()
+#     threading_main.join()
+#     threading_time.join()
+#     time.sleep(1)
+#     coze_logger.info("全部完成")
 
 #Moeus
