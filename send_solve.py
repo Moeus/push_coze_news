@@ -84,9 +84,9 @@ def qiniu_push_file(year,month,day,img_path):
     #检查是否以及存在
     base_url="http://ssqnlgcpi.hn-bkt.clouddn.com/"
     #要上传的空间
-    bucket_name = 'moeus-news-res'
+    bucket_name = 'moeus-news-png'
     #上传后保存的文件名
-    key = f'{year}-{month}-{day}.res'
+    key = f'{year}-{month}-{day}.png'
     #生成上传 Token，可以指定过期时间等
     token = q.upload_token(bucket_name, key, 3600)
     #要上传文件的本地路径

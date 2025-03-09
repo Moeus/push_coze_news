@@ -2,6 +2,7 @@ import datetime
 from datetime import timedelta,datetime
 import os
 from send_solve import root_logger
+import send_solve
 import re
 def check_old_files(year, month, day):
     """
@@ -34,3 +35,6 @@ def check_old_files(year, month, day):
     return nowaday_news_exist
 
 check_old_files(2025,3,9)
+url=send_solve.qiniu_push_file(2025,3,9,r"D:\push_coze_news\res\2025-3-9.png")
+
+send_solve.pushplus("197bcdaf723444f6a0b48dfd304c3153","今日新闻",img_url=url,topic="Moeus266")
