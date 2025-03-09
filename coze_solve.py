@@ -10,8 +10,6 @@ from qiniu import Auth, put_file, etag
 from cozepy import COZE_CN_BASE_URL
 from cozepy import Coze, TokenAuth, Message, ChatStatus, MessageContentType
 import logging
-state = False
-
 coze_logger = logging.getLogger('root')
 # 清除原有的处理器配置
 for handler in coze_logger.handlers[:]:
@@ -35,11 +33,9 @@ console_handler.setFormatter(formatter)
 coze_logger.addHandler(console_handler)
 #日志功能处理完成
 
-# 获取新闻
-def get_news(api_token, work_id):
+def solve_news(api_token, work_id):
     coze_api_token = api_token
     coze_api_base = COZE_CN_BASE_URL
-    global state
     try:
         coze = Coze(auth=TokenAuth(token=coze_api_token), base_url=coze_api_base)
         workflow_id = work_id
@@ -53,14 +49,12 @@ def get_news(api_token, work_id):
         )
         result_json = json.loads(workflow.data)
         coze_logger.info("成功解析coze返回的json")
-        context = result_json["result"]
-        context = "".join(context.split("\n"))
+        context = result_json["result"]#这里面时字符串，需要json解析成json格式
         return context
     except Exception as e:
         coze_logger.error(f"coze获取新闻发生错误: {e}")
 
 
-# 新闻文字转图片，在get_news内被调用
 def get_png(data,content,script_dir, year, month, day):
     target_url = "https://fireflycard-api.302ai.cn/api/saveImg"
     data["form"]["content"] = content
@@ -156,14 +150,6 @@ def pushplus(token,title,img_url,topic=""):
     data = res.read()
     coze_logger.info(data.decode("utf-8"))
 
-# 打印运行时间线程函数
-def print_running_time():
-    start_time = time.time()
-    global state
-    while not state:
-        elapsed_time = time.time() - start_time
-        print(f"程序已运行 {elapsed_time:.2f} 秒", end='\r')
-
 # 主要工作线程入口
 def main(year, month, day):
     script_dir = os.path.dirname(os.path.abspath(__file__))
@@ -211,20 +197,5 @@ def main(year, month, day):
     global state
     state = True
 
-# # 多线程入口函数
-# if __name__ == "__main__":
-#     current_time = time.localtime()
-#     year = current_time.tm_year
-#     month = current_time.tm_mon
-#     day = current_time.tm_mday
-#     threading_main = threading.Thread(target=main, args=(year, month, day))
-#     threading_time = threading.Thread(target=print_running_time)
-#     coze_logger.info("开始执行")
-#     threading_time.start()
-#     threading_main.start()
-#     threading_main.join()
-#     threading_time.join()
-#     time.sleep(1)
-#     coze_logger.info("全部完成")
 
 #Moeus
