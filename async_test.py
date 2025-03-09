@@ -4,7 +4,7 @@ import os.path
 import aiohttp
 import json
 
-from coze_solve import coze_logger
+from send_solve import root_logger
 
 
 async def run_workflow(news: str):
@@ -24,7 +24,8 @@ async def run_workflow(news: str):
         async with session.post(url, headers=headers, json=data) as response:
             if response.status == 200:
                 result = await response.json()
-                coze_logger.info(f"{result}")
+                root_logger.info(f"{result}")
+                root_logger.info(f"{result['result']}")
                 return result
             else:
                 print(f"Request failed with status code: {response.status}")
@@ -47,4 +48,4 @@ async def coze_main():
 
 
 if __name__ == "__main__":
-    asyncio.run(main())  # 自动管理事件循环，避免手动创建和关闭
+    asyncio.run(coze_main())  # 自动管理事件循环，避免手动创建和关闭
