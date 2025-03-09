@@ -1,18 +1,36 @@
-from qiniu import Auth, put_file, etag
-#需要填写你的 Access Key 和 Secret Key
-#构建鉴权对象
-q = Auth(access_key="FZzEtGwpcOqeY4TgSreLMjMZ0KmzOXfPlFSQfPRY", secret_key="qFWi1wp8H4HAkmXH1gRAd3xDh8ZlyKUF3jVaDyQH")
+import datetime
+from datetime import timedelta,datetime
+import os
+from send_solve import root_logger
+import re
+def check_old_files(year, month, day):
+    """
+    res这个文件夹下的文件都是以f'{year}-{month}-{day}'为前缀命名的
+    检查并删除七天前的旧文件，并且检查是否存在今日的文件
+    """
+    current_date = datetime(year, month, day)
+    seven_days_ago = current_date - timedelta(days=7)
+    script_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)), "res")
+    nowaday_news_exist = False
+    # 定义正则表达式模式来匹配日期部分
+    date_pattern = r'(\d{4})-(\d{1,2})-(\d{1,2})'
+    for filename in os.listdir(script_dir):
+        # 检查是否存在今日的文件
+        if filename == f"{year}-{month}-{day}.png":
+            root_logger.info(f"找到今现存的日新闻卡片{year}-{month}-{day}.png")
+            nowaday_news_exist = True
+        # 使用正则表达式匹配文件名中的日期部分
+        match = re.search(date_pattern, filename)
+        if match:
+            try:
+                file_date = datetime.strptime(match.group(0), '%Y-%m-%d')
+                # 对比日期
+                if file_date < seven_days_ago:
+                    file_path = os.path.join(script_dir, filename)
+                    os.remove(file_path)
+                    root_logger.info(f"已删除旧的文件文件: {filename}")
+            except ValueError:
+                continue
+    return nowaday_news_exist
 
-#要上传的空间
-bucket_name = 'moeus-news-res'
-#上传后保存的文件名
-key = '2025-3-7.res'
-#生成上传 Token，可以指定过期时间等
-token = q.upload_token(bucket_name, key, 3600)
-#要上传文件的本地路径
-localfile = r'D:\news_wechat_api\res\2025-3-7.res'
-ret, info = put_file(token, key, localfile, version='v2')
-print(info)
-assert ret['key'] == key
-assert ret['hash'] == etag(localfile)
-print(ret)
+check_old_files(2025,3,9)

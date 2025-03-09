@@ -1,8 +1,11 @@
+"""
+获取新闻卡片
+发送卡片至七牛云 云对象存储库
+使用pushplus推送
+"""
 import requests
 import json
 import os
-import time
-from datetime import datetime, timedelta
 import http.client
 from qiniu import Auth, put_file, etag
 import logging
@@ -66,34 +69,17 @@ def get_png(content, year, month, day):
         root_logger.error(f'请求发生未知错误: {req_err}')
     return 0
 
-# 删除七天以前的在本地存储的新闻png
-def check_old_files(year, month, day):
-    """
-    检查并删除七天前的新闻图片，并且检查今日新闻图片是否以及存在
-    """
-    current_date = datetime(year, month, day)
-    seven_days_ago = current_date - timedelta(days=7)
-    script_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)), "res")
-    nowaday_news_exist=False
-    for filename in os.listdir(script_dir):
-        if filename.endswith('.res'):
-            if filename==f"{year}-{month}-{day}.res":
-                root_logger.info(f"找到今现存的日新闻卡片{year}-{month}-{day}.res")
-                nowaday_news_exist=True
-            try:
-                file_date_str = filename.split('.')[0]
-                file_date = datetime.strptime(file_date_str, '%Y-%m-%d')
-                if file_date < seven_days_ago:
-                    file_path = os.path.join(script_dir, filename)
-                    os.remove(file_path)
-                    root_logger.info(f"已删除旧的 PNG 文件: {filename}")
-            except ValueError:
-                continue
-    return nowaday_news_exist
-
 
 #上传到七牛对象存储库
-def qiniu_push_file(qiniu_config,year,month,day,img_path):
+def qiniu_push_file(year,month,day,img_path):
+    script_dir = os.path.dirname(os.path.abspath(__file__))
+    try:
+        root_logger.info("获取对象存储库配置")
+        with open(os.path.join(script_dir, "config/qiniu.json"), 'r', encoding='utf-8') as file:
+            qiniu_config = json.load(file)
+            root_logger.info("成功获取对象存储库配置")
+    except Exception as e:
+        root_logger.error("读取对象存储库配置出错")
     q = Auth(*qiniu_config.values())
     #检查是否以及存在
     base_url="http://ssqnlgcpi.hn-bkt.clouddn.com/"
@@ -130,30 +116,5 @@ def pushplus(token,title,img_url,topic=""):
     res = conn.getresponse()
     data = res.read()
     root_logger.info(data.decode("utf-8"))
-
-# 主要工作线程入口
-def main(year, month, day):
-    script_dir = os.path.dirname(os.path.abspath(__file__))
-    try:
-        root_logger.info("获取新闻卡片配置")
-        with open(os.path.join(script_dir, "config/liuguang_api.json"), 'r', encoding='utf-8') as file:
-            liuguang_config = json.load(file)
-        root_logger.info("成功获取新闻卡片配置")
-    except Exception as e:
-        root_logger.error("读取新闻卡片配置出错")
-
-    try:
-        root_logger.info("获取对象存储库配置")
-        with open(os.path.join(script_dir, "config/qiniu.json"), 'r', encoding='utf-8') as file:
-            qiniu_config = json.load(file)
-        root_logger.info("成功获取对象存储库配置")
-    except Exception as e:
-        root_logger.error("读取对象存储库配置出错")
-    url=qiniu_push_file(qiniu_config=qiniu_config,year=year,month=month,day=day,img_path=img_path)
-    res=pushplus(token="197bcdaf723444f6a0b48dfd304c3153",title=f"{year}-{month}-{day}今日热点新闻",img_url=url,topic="Moeus266")
-    time.sleep(1)
-    global state
-    state = True
-
 
 #Moeus

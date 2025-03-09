@@ -1,3 +1,11 @@
+"""
+主文件
+爬虫 今日头条，微博，知乎日报
+coze异步调用工作流api对新闻内容做处理
+生成html字符串
+保存队列信息到res文件夹
+检查res文件夹，清除旧文件
+"""
 import asyncio
 import aiohttp
 from DrissionPage import WebPage
@@ -12,6 +20,7 @@ import queue
 import threading
 import os
 import json
+from datetime import timedelta,datetime
 #全局queue队列，线程之间通信
 article_queue=queue.Queue()
 #主线程运行状态
@@ -23,11 +32,15 @@ co.set_argument('--autoplay-policy','no-user-gesture-required')#禁用视频播�
 co.no_imgs()#禁用图片加载
 co.no_js()#禁用js加载
 co.set_local_port(9222)
-co.set_user_data_path(r"C:\Users\26627\AppData\Local\Google\Chrome\User Data")
-so=SessionOptions()
 co.set_argument("--remote-debugging-port","9222")
+co.set_user_data_path(r"C:\Users\26627\AppData\Local\Google\Chrome\User Data")
+
+so=SessionOptions()
 
 def get_toutiao(webpage:WebPage,count:int=3):
+    """
+    获取今日头条上的今日热点内容
+    """
     url="https://www.toutiao.com"
     #主tab
     main_tab=webpage.new_tab(url=url)#返回mixtab对象
@@ -96,6 +109,9 @@ def get_toutiao(webpage:WebPage,count:int=3):
     time.sleep(0.5)
 
 def get_weibo(webpage:WebPage,count:int=3):
+    """
+    获取微博今日热榜的微博内容
+    """
     url="https://weibo.com/hot/search"#进入微博
     #主tab
     main_tab=webpage.new_tab(url=url)#返回mixtab对象
@@ -159,6 +175,9 @@ def get_weibo(webpage:WebPage,count:int=3):
 
 
 def get_zhihuToday(webpage: WebPage, count: int = 3):
+    """
+    获取知乎日报的文章
+    """
     url = "https://tophub.today/n/KMZd7VOvrO"  # 进入微博
     # 主tab
     main_tab = webpage.new_tab(url=url)  # 返回mixtab对象
@@ -205,6 +224,9 @@ def get_zhihuToday(webpage: WebPage, count: int = 3):
 
 
 async def run_workflow(news: str):
+    """
+    运行coze上工作流的函数
+    """
     url = 'https://api.coze.cn/v1/workflow/run'
     headers = {
         "Authorization": "Bearer pat_yUmVBjZAhTbmF90GZjKcysB7UrTKQ4GevS33z5AadZQxqweT4Jni0ZdlDIiKBTLA",
@@ -232,6 +254,9 @@ async def run_workflow(news: str):
 
 
 async def coze_main():
+    """
+    取q队列内新闻信息创建异步任务的函数
+    """
     task_list = []
     #创建异步任务
     while not article_queue.empty():
@@ -247,7 +272,43 @@ async def coze_main():
     else :
         root_logger.error("[coze]存在coze处理失败的任务，检查工作流或者爬取的内容")
 
+def check_old_files(year, month, day):
+    """
+    res这个文件夹下的文件都是以f'{year}-{month}-{day}'为前缀命名的
+    检查并删除七天前的旧文件，并且检查是否存在今日的文件
+    """
+    current_date = datetime(year, month, day)
+    seven_days_ago = current_date - timedelta(days=7)
+    script_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)), "res")
+    nowaday_news_exist = False
+    # 定义正则表达式模式来匹配日期部分
+    date_pattern = r'(\d{4})-(\d{1,2})-(\d{1,2})'
+    for filename in os.listdir(script_dir):
+        # 检查是否存在今日的文件
+        if filename == f"{year}-{month}-{day}.png":
+            root_logger.info(f"找到今现存的日新闻卡片{year}-{month}-{day}.png")
+            nowaday_news_exist = True
+        # 使用正则表达式匹配文件名中的日期部分
+        match = re.search(date_pattern, filename)
+        if match:
+            try:
+                file_date = datetime.strptime(match.group(0), '%Y-%m-%d')
+                # 对比日期
+                if file_date < seven_days_ago:
+                    file_path = os.path.join(script_dir, filename)
+                    os.remove(file_path)
+                    root_logger.info(f"已删除旧的文件文件: {filename}")
+            except ValueError:
+                continue
+    return nowaday_news_exist
+
 def save_queue(script_dir:str,q:queue.Queue,name:str):
+    """
+    存文件使用的函数，默认存到res文件夹内，并且格式为json
+    :param script_dir:当前的工作路径
+    :param q:存有新闻信息的队列
+    :param name:文件的名字
+    """
     articles=[]
     while not q.empty():
         articles.append(q.get())
@@ -255,28 +316,31 @@ def save_queue(script_dir:str,q:queue.Queue,name:str):
     with open(os.path.join(script_dir,"res",f'{name}.json'),"w",encoding="utf-8") as file:
          json.dump(articles, file, indent=4, ensure_ascii=False)
     root_logger.info(f"[写入线程] 新闻写入{name}.json成功")
-def news_htmlize():
-    while not article_queue.empty():
-        try:
-            article = article_queue.get()
 
-        except Exception as e:
-            return
-        return
+def news_htmlize(datas:dict|list[dict]|queue[dict]):
+    """
+    生成新闻卡片需要HTML格式的内容
+    :param datas:传入新闻内容的字典,或者含有新闻内容字典的queue队列或list
+    """
+    html_str=""
+    for data in datas:
+        html_str+='''<li><p style="font-size: 16px;"><strong>'''+data["title"]+'''</strong><br/>'''+data["content"]+'''<br/><small style="font-size: 0.618em; color: #999;">'''+"来源:"+data["source"]+'''</small></p></li>'''
+    html_str='''<ol>'''+html_str+'''</ol>'''
+    return html_str
 if __name__=="__main__":
     #单线程同步运行，drssionpage多线程情况下很慢
-    root_logger.info("[主线程]开始爬虫抓取新闻原稿")
-    webpage=WebPage(mode="d",chromium_options=co,session_or_options=so)#返回webpage对象
-    get_zhihuToday(webpage=webpage)
-    get_weibo(webpage=webpage)
-    get_toutiao(webpage=webpage)
-
     script_dir = os.path.dirname(os.path.abspath(__file__))
     root_logger.info(f"[主线程]工作目录：script_dir:{script_dir}")
     current_time = time.localtime()
     year = current_time.tm_year  # 年
     month = current_time.tm_mon  # 月
     day = current_time.tm_mday  # 日
+    check_old_files(year=year,month=month,day=day)
+    root_logger.info("[主线程]开始爬虫抓取新闻原稿")
+    webpage=WebPage(mode="d",chromium_options=co,session_or_options=so)#返回webpage对象
+    get_zhihuToday(webpage=webpage)
+    get_weibo(webpage=webpage)
+    get_toutiao(webpage=webpage)
 
     #开启写线程，写入爬虫得到的原始数据
     new_queue = queue.Queue()
